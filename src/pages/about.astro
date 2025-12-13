@@ -9,6 +9,50 @@ import Layout from "../layouts/BlogPost.astro";
   pubDate={new Date("December 13 2025")}
   heroImage={AboutHeroImage}
 >
+  <style>
+    .profile-section {
+      display: flex;
+      align-items: center;
+      gap: 2em;
+      margin-bottom: 2.5em;
+    }
+    .profile-image {
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+    .profile-intro h2 {
+      margin-top: 0;
+      font-size: 1.8em;
+      margin-bottom: 0.5em;
+    }
+    .profile-intro p {
+      margin: 0;
+      font-size: 1.1em;
+      color: rgb(var(--gray));
+    }
+    @media (max-width: 720px) {
+      .profile-section {
+        flex-direction: column;
+        text-align: center;
+      }
+      .profile-image {
+        width: 150px;
+        height: 150px;
+      }
+    }
+  </style>
+
+  <div class="profile-section">
+    <img src="/profile.jpg" alt="Jacob Kim" class="profile-image" />
+    <div class="profile-intro">
+      <h2>Jacob Kim</h2>
+      <p>Backend Software Engineer at KRAFTON</p>
+    </div>
+  </div>
+
   <p>
     I'm Jacob Kim, a Backend Software Engineer at KRAFTON working on OVERDARE -
     a UGC platform for creating and sharing interactive games.

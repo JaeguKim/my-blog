@@ -27,37 +27,65 @@ import HeaderLink from './HeaderLink.astro';
 <style>
 	header {
 		margin: 0;
-		padding: 0 1em;
-		background: white;
-		box-shadow: 0 2px 8px rgba(var(--black), 5%);
+		padding: 2em 0;
+		background: transparent;
+		border-bottom: 1px solid rgb(var(--gray-light));
 	}
 	h2 {
 		margin: 0;
-		font-size: 1em;
+		font-size: 1.2em;
+		font-weight: 600;
 	}
 
 	h2 a,
 	h2 a.active {
 		text-decoration: none;
+		border-bottom: none;
+		color: rgb(var(--black));
+	}
+	h2 a:hover {
+		color: var(--accent);
+		border-bottom: none;
 	}
 	nav {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
+		width: 680px;
+		max-width: calc(100% - 3em);
+		margin: 0 auto;
 	}
 	nav a {
-		padding: 1em 0.5em;
-		color: var(--black);
-		border-bottom: 4px solid transparent;
+		padding: 0.5em 0.8em;
+		color: rgb(var(--gray));
+		border-bottom: none;
 		text-decoration: none;
+		font-size: 0.95em;
+	}
+	nav a:hover {
+		color: rgb(var(--black));
+		border-bottom: none;
 	}
 	nav a.active {
-		text-decoration: none;
-		border-bottom-color: var(--accent);
+		color: rgb(var(--black));
+		border-bottom: none;
+	}
+	.internal-links {
+		display: flex;
+		gap: 0.5em;
 	}
 	.social-links,
 	.social-links a {
 		display: flex;
+	}
+	.social-links {
+		gap: 0.8em;
+	}
+	.social-links a {
+		color: rgb(var(--gray));
+	}
+	.social-links a:hover {
+		color: rgb(var(--black));
 	}
 	@media (max-width: 720px) {
 		.social-links {

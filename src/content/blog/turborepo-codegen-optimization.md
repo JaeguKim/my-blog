@@ -44,7 +44,7 @@ gen:api
 
 세 가지 문제를 발견했다:
 
-1. **`gen:api`가 `backend#build`에 의존** — `nest start api-generator`는 자체 tsconfig으로 독립 컴파일하므로 `backend#build`의 결과물(`dist/`)을 사용하지 않음
+1. **`gen:api`가 `backend#build`에 의존** — `nest start api-generator`는 자체 tsconfig으로 독립 컴파일하므로 `backend#build`가 생성하는 `dist/`는 사용하지 않고, upstream workspace 패키지(`smart-contracts`, `chain-config` 등)의 빌드 결과물만 필요
 2. **`smart-contracts`가 매번 전체 재컴파일** — `--force` 플래그 + turbo 캐시 비활성화 + `prebuild: rm -rf dist`로 3중 캐시 무효화
 3. **`gen.sh`에서 중복 빌드 + 순차 실행** — `build_backend()`를 별도로 호출한 뒤 `turbo run gen:api`가 또 upstream을 빌드
 
@@ -64,9 +64,9 @@ gen:api
 }
 ```
 
-backend 소스코드 전체를 **자체적으로 컴파일**한다. `backend#build`가 생성하는 `dist/`를 사용하지 않고, 출력도 별도 경로(`dist/scripts/api-generator/`)에 생성한다.
+backend 소스코드 전체를 **자체적으로 컴파일**한다. `backend#build`가 생성하는 `dist/`는 사용하지 않고, 출력도 별도 경로(`dist/scripts/api-generator/`)에 생성한다.
 
-반면 upstream workspace 패키지들(`smart-contracts`, `chain-config` 등)은 `main: "./dist/index.js"`로 빌드 결과물을 export하므로, 이들의 `dist/`가 없으면 TypeScript 컴파일이 실패한다.
+하지만 backend 소스가 `import ... from 'smart-contracts'`처럼 upstream workspace 패키지를 import하고, 이 패키지들은 `main: "./dist/index.js"`로 빌드 결과물을 export한다. 따라서 이들의 `dist/`가 없으면 TypeScript 컴파일이 실패한다. 즉, **backend 자체 빌드 결과물은 불필요하고 upstream 패키지 빌드 결과물만 필요**하므로 `backend#build` → `^build`로 변경할 수 있다.
 
 따라서 `backend#build`(backend 자체 빌드) 대신 `^build`(upstream 패키지만 빌드)로 변경:
 

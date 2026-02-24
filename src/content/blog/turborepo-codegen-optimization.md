@@ -1,6 +1,6 @@
 ---
-title: 'Turborepo 모노레포에서 코드 생성 속도 68% 개선하기'
-description: 'NestJS + Turborepo 모노레포에서 codegen 파이프라인의 불필요한 의존성과 중복 빌드를 제거하여 80초를 26초로 줄인 과정'
+title: 'Turborepo 모노레포 빌드 최적화: codegen 68% + 빌드 98% 개선'
+description: 'NestJS + Turborepo 모노레포에서 codegen 파이프라인 최적화(80초→26초)와 전체 빌드 캐싱 전면 적용(4분→6초)으로 개발 속도를 개선한 과정'
 pubDate: 'Feb 13 2026'
 ---
 
@@ -180,6 +180,81 @@ generate_api        # prisma 타입이 필요하므로 이후 실행
 | --- | --- | --- |
 | `pnpm gen` (전체) | 139초 | 94초 |
 
+## 개선 4: 전체 빌드 캐싱 전면 적용
+
+codegen 파이프라인 개선 이후, `pnpm build` 전체에도 같은 캐싱 전략을 확장했다. 기존에는 모든 빌드 태스크가 `cache: false`(smart-contracts 제외)여서, 소스 변경이 없어도 매번 전체 재빌드가 실행되고 있었다.
+
+### outputs 설정 버그 발견
+
+캐싱을 활성화하기 전에 기존 `outputs` 설정을 점검했는데, 두 가지 버그를 발견했다:
+
+```json
+// turbo.json — 기존 설정
+"build:eterno-backend": {
+  "outputs": ["dist/**"]  // ❌ backend/dist/를 가리킴
+}
+// 실제 nest build 출력: backend/apps/eterno-backend/dist/
+
+"hiker#build": {
+  // outputs 미설정 → 기본값 dist/** 사용
+}
+// 실제 vite 출력: frontend/hiker/build/  (vite.config.ts의 outDir)
+```
+
+`cache: false`였기 때문에 outputs가 틀려도 문제가 드러나지 않았다. 하지만 `cache: true`로 전환하면 turbo가 캐시 HIT 시 이 경로에서 파일을 복원하므로, 잘못된 outputs는 빌드 결과물 누락으로 이어진다. 이것이 과거 `cache: true` 적용 시 겪었던 문제의 원인이었을 가능성이 높다.
+
+### 수정 내용
+
+```diff
+// turbo.json
+"build": {
+-  "cache": false,
++  "cache": true,
+   "dependsOn": ["^build"],
+   "outputs": ["dist/**"]
+}
+
+"build:eterno-backend": {
+  "cache": true,
+- "outputs": ["dist/**"]
++ "outputs": ["apps/eterno-backend/dist/**"]
+}
+
+"hiker#build": {
+  "cache": true,
++ "outputs": ["build/**"]
+}
+```
+
+**`inputs` 전략**: 대부분의 패키지에서 `inputs`를 명시하지 않았다. turbo는 `inputs`가 없으면 패키지 내 모든 파일을 해싱하는데, 이것이 명시적 `inputs` 목록보다 안전하다. 새 파일이 추가될 때 `inputs`에 빠뜨릴 위험이 없기 때문이다. 예외적으로 backend 빌드 태스크(`build:eterno-backend`, `build:hiker-backend`)만 `inputs`를 명시했는데, 같은 패키지 내에서 앱별 소스를 구분해야 하기 때문이다.
+
+### 캐시 검증
+
+캐싱이 올바르게 동작하는지 12개 시나리오를 자동 검증하는 스크립트를 작성했다:
+
+```bash
+./scripts/verify-turbo-cache.sh
+```
+
+각 시나리오는: 파일 변경 → `turbo run build --dry=json`으로 캐시 상태 확인 → `git checkout`으로 복원. 예를 들어:
+
+| 시나리오 | 변경 | Expected MISS | Expected HIT |
+| --- | --- | --- | --- |
+| chain-config 변경 | `packages/chain-config/index.ts` | chain-config, backend×2, eterno, ovdr-official | hiker, odds, smart-contracts |
+| eterno-backend만 변경 | `backend/apps/eterno-backend/src/main.ts` | build:eterno-backend | build:hiker-backend, 전체 프론트 |
+| prisma 생성코드 변경 | `backend/prisma/_generated/` | build:eterno-backend, build:hiker-backend | 전체 패키지, 전체 프론트 |
+
+12개 시나리오 전부 PASS.
+
+### 결과
+
+| 시나리오 | Before (캐시 없음) | After (캐시 적용) | 개선 |
+| --- | --- | --- | --- |
+| `pnpm build` 1회차 (cold) | 4분 42초 | 4분 38초 | 동일 |
+| `pnpm build` 2회차 (변경 없음) | 4분 5초 | **6초** | **-98%** |
+
+cold build는 동일하지만, 소스 변경이 없는 2회차 빌드가 4분 → 6초로 단축되었다. 실제 개발 시에는 변경된 패키지만 rebuild되고 나머지는 캐시에서 복원되므로, 대부분의 빌드에서 큰 시간 절감 효과가 있다.
+
 ## 최종 결과
 
 ### 개별 커밋
@@ -189,6 +264,7 @@ generate_api        # prisma 타입이 필요하므로 이후 실행
 | 1 | `gen:api` 의존성 `backend#build` → `^build` | `pnpm gen:api` | 80초 | 56초 | -24초 (30%) |
 | 2 | smart-contracts 캐시 활성화 + `--force` 제거 | `pnpm gen:api` | 59초 | 26초 | -33초 (56%) |
 | 3 | gen.sh `build_backend` 제거 + prisma/proto 병렬화 | `pnpm gen` | 139초 | 94초 | -45초 (32%) |
+| 4 | 전체 빌드 캐싱 전면 적용 | `pnpm build` (2회차) | 4분 5초 | 6초 | -98% |
 
 ### 누적 효과
 
@@ -196,6 +272,7 @@ generate_api        # prisma 타입이 필요하므로 이후 실행
 | --- | --- | --- | --- |
 | `pnpm gen:api` | 80초 | 26초 | **-54초 (68%)** |
 | `pnpm gen` (전체) | 139초 | 94초 | **-45초 (32%)** |
+| `pnpm build` (2회차) | 4분 5초 | 6초 | **-98%** |
 
 ## 배운 것
 
@@ -204,3 +281,7 @@ generate_api        # prisma 타입이 필요하므로 이후 실행
 **빌드 도구의 자체 캐시를 존중하라.** `--force` 플래그나 `rm -rf dist`를 습관적으로 넣으면 도구가 제공하는 캐시 메커니즘을 무력화한다. 캐시 무효화는 의도적으로, 필요할 때만 해야 한다.
 
 **"이 빌드 결과를 누가 사용하는가?"를 추적하라.** `backend#build`의 `dist/`를 `gen:api`가 사용하지 않는다는 걸 확인하는 데 가장 중요한 건 tsconfig의 `include` 범위와 출력 경로를 비교하는 것이었다.
+
+**`outputs`가 정확하지 않으면 캐싱은 독이 된다.** 캐시 HIT 시 turbo는 빌드를 스킵하고 `outputs`에 명시된 파일만 복원한다. `outputs`가 실제 빌드 결과물과 다르면 파일이 누락되어 의존 태스크가 실패한다. `cache: false`일 때는 매번 빌드가 실행되므로 `outputs` 오류가 드러나지 않는다.
+
+**`inputs`는 명시하지 않는 편이 안전하다.** turbo는 `inputs`가 없으면 패키지 내 모든 파일을 해싱한다. 명시적 `inputs` 목록은 새 파일 추가 시 빠뜨릴 위험이 있다. 같은 패키지 내에서 서로 다른 태스크의 소스를 구분해야 할 때만 `inputs`를 사용하면 된다.

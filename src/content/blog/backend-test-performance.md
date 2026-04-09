@@ -156,17 +156,63 @@ Docker 빌드 전체:  ~5분
 
 결국 **CI Dockerfile의 `--runInBand` 변경은 롤백**했다. CI 전체 시간을 줄이려면 테스트 병렬화가 아니라 Docker 빌드 캐싱이나 파이프라인 구조 자체를 개선해야 한다.
 
+## CI 파이프라인 구조 개선: Build와 Test 분리
+
+테스트 실행 속도 자체가 CI 전체 시간에 미치는 영향이 작다면, 파이프라인 구조를 바꿔야 한다.
+
+### 기존: 하나의 Job에서 빌드 + 테스트
+
+기존에는 Docker 빌드 안에서 테스트가 순차적으로 실행됐다. 빌드가 끝나야 테스트가 시작되고, 테스트가 끝나야 이미지가 푸시됐다. 전체가 직렬이므로 모든 시간이 합산된다.
+
+### 변경: Build와 Test를 병렬 Job으로 분리
+
+GitHub Actions 워크플로우를 두 개의 독립된 job으로 나눴다:
+
+```yaml
+jobs:
+  test:
+    name: Unit Test
+    steps:
+      - # checkout
+      - docker build --target test-runner
+      - docker run eterno-backend-test:latest
+
+  build-push:
+    name: Build and Push ECR Image
+    # needs: test  ← 의도적으로 없음
+    steps:
+      - # checkout
+      - docker build --target server-runner
+      - docker push
+```
+
+핵심은 `build-push`가 `test`에 **의존하지 않는다**는 점이다. 두 job이 동시에 시작된다.
+
+### 왜 이렇게 했나
+
+- **테스트 피드백이 빨라진다.** 테스트 job은 프로덕션 이미지 빌드, ECR 푸시, 버전 메타데이터 업로드 같은 무거운 작업을 하지 않는다. `test-runner` 스테이지까지만 빌드하고 바로 실행하므로 결과가 더 빨리 나온다.
+- **빌드 실패와 테스트 실패를 독립적으로 파악한다.** 하나의 job에서 빌드 실패와 테스트 실패가 섞이면 뭐가 깨졌는지 구분하기 어렵다. 분리하면 Slack 알림도 각각 온다.
+- **테스트가 merge gate 역할을 한다.** PR merge 조건에 `test` job 통과를 필수로 걸면, 빌드가 성공해도 테스트가 실패하면 머지되지 않는다. 빌드 job과 독립적이므로 테스트 실패가 빌드를 블로킹하지 않으면서도, 코드 품질 게이트는 유지된다.
+
+### 트레이드오프
+
+- CI 러너 리소스를 2배 사용한다. 두 job이 동시에 돌아가므로 runner가 2개 필요하다.
+- Git checkout과 Docker 빌드의 초기 단계(`pruner`, `builder`)가 양쪽에서 중복 실행된다. Dockerfile의 multi-stage 구조상 `test-runner`와 `server-runner` 모두 `builder` 스테이지를 거치므로, 이 부분의 시간은 절약되지 않는다.
+- 테스트가 실패해도 빌드/푸시는 계속 진행된다. 불필요한 이미지가 ECR에 올라갈 수 있다. 다만 배포 자체는 별도 파이프라인이므로 실질적인 문제는 없다.
+
 ## 최종 정리
 
 | 환경 | Before | After | 개선 |
 |------|--------|-------|------|
 | 로컬 (병렬) | 45s (ts-jest) | 13s (@swc/jest) | **3.5x** |
-| CI | 변경 없음 | 변경 없음 | - |
+| CI 테스트 속도 | 변경 없음 | 변경 없음 | - |
+| CI 파이프라인 | 빌드+테스트 직렬 | 빌드/테스트 병렬 job | 테스트 피드백 단축 |
 
 변경한 파일:
 - `jest.config.json` 3개 (backend root, eterno-backend/test, hiker-backend/test)
 - `sandbox.types.ts` 1개 (circular dep 해결)
 - `package.json` + `pnpm-lock.yaml` (@swc/jest, @swc/core 의존성)
+- `eterno-backend-ci-v2.yaml` (build/test 병렬 job 분리)
 
 ## 배운 것
 
@@ -176,4 +222,6 @@ Docker 빌드 전체:  ~5분
 
 3. **Circular dependency는 언젠가 터진다.** ts-jest에서는 괜찮았지만 SWC에서 터졌다. 도구를 바꾸면 기존에 숨어있던 코드 스멜이 드러난다. 이건 좋은 일이다.
 
-4. **측정 먼저, 최적화 나중.** 감으로 "느리다"가 아니라 `--verbose`와 `time` 명령어로 실제 시간을 재고 병목을 찾아야 한다. transform이 병목인지, I/O가 병목인지, 개별 테스트가 느린지에 따라 해법이 완전히 다르다. 이번에는 4초짜리 warmup 테스트도 발견했지만, transform 비용이 압도적이라 거기에 집중한 것이 옳은 판단이었다.
+4. **속도를 못 줄이면 구조를 바꿔라.** 테스트 실행 자체가 CI 전체에서 차지하는 비중이 작아 속도 개선이 무의미했다. 이럴 때는 파이프라인 구조를 바꿔서 병렬로 돌리는 게 실질적인 개선이다. 빌드와 테스트를 독립 job으로 분리하면, 테스트 피드백은 빨라지고 빌드 시간에 영향을 주지 않는다.
+
+5. **측정 먼저, 최적화 나중.** 감으로 "느리다"가 아니라 `--verbose`와 `time` 명령어로 실제 시간을 재고 병목을 찾아야 한다. transform이 병목인지, I/O가 병목인지, 개별 테스트가 느린지에 따라 해법이 완전히 다르다. 이번에는 4초짜리 warmup 테스트도 발견했지만, transform 비용이 압도적이라 거기에 집중한 것이 옳은 판단이었다.

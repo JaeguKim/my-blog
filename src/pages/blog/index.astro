@@ -4,8 +4,10 @@ import BaseHead from '../../components/BaseHead.astro';
 import Footer from '../../components/Footer.astro';
 import FormattedDate from '../../components/FormattedDate.astro';
 import Header from '../../components/Header.astro';
+import LangToggle from '../../components/LangToggle.astro';
 import { SITE_DESCRIPTION, SITE_TITLE } from '../../consts';
 
+const translations = new Map((await getCollection('blogEn')).map((t) => [t.id, t.data]));
 const posts = (await getCollection('blog')).sort(
 	(a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf(),
 );
@@ -16,9 +18,17 @@ const posts = (await getCollection('blog')).sort(
 	<head>
 		<BaseHead title={SITE_TITLE} description={SITE_DESCRIPTION} />
 		<style>
+			.heading {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 1em;
+				flex-wrap: wrap;
+				margin-bottom: 2em;
+			}
 			h1 {
 				font-size: 2.5em;
-				margin-bottom: 2em;
+				margin: 0;
 				font-weight: 600;
 			}
 			ul {
@@ -72,7 +82,10 @@ const posts = (await getCollection('blog')).sort(
 	<body>
 		<Header />
 		<main>
-			<h1>All Posts</h1>
+			<div class="heading">
+				<h1>All Posts</h1>
+				<LangToggle />
+			</div>
 			<section>
 				<ul>
 					{
@@ -82,7 +95,14 @@ const posts = (await getCollection('blog')).sort(
 									<time class="date">
 										<FormattedDate date={post.data.pubDate} />
 									</time>
-									<h2 class="title">{post.data.title}</h2>
+									{translations.has(post.id) ? (
+										<h2 class="title">
+											<span class="lang-en">{translations.get(post.id)!.title}</span>
+											<span class="lang-ko">{post.data.title}</span>
+										</h2>
+									) : (
+										<h2 class="title">{post.data.title}</h2>
+									)}
 								</a>
 							</li>
 						))

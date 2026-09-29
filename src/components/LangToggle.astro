@@ -1,0 +1,49 @@
+---
+// Switches between English (default) and Korean content.
+// The chosen language is stored in localStorage and applied as <html data-lang>.
+---
+
+<div class="lang-toggle" role="group" aria-label="Language">
+	<button type="button" data-set-lang="en">EN</button>
+	<button type="button" data-set-lang="ko">한국어</button>
+</div>
+
+<script>
+	document.querySelectorAll<HTMLButtonElement>('[data-set-lang]').forEach((button) => {
+		button.addEventListener('click', () => {
+			const lang = button.dataset.setLang!;
+			document.documentElement.dataset.lang = lang;
+			document.documentElement.lang = lang;
+			try {
+				localStorage.setItem('lang', lang);
+			} catch {}
+		});
+	});
+</script>
+
+<style>
+	.lang-toggle {
+		display: inline-flex;
+		border: 1px solid rgb(var(--gray-light));
+		border-radius: 999px;
+		padding: 2px;
+		font-size: 0.85em;
+	}
+	button {
+		border: none;
+		background: transparent;
+		color: rgb(var(--gray));
+		padding: 0.3em 0.9em;
+		border-radius: 999px;
+		cursor: pointer;
+		font: inherit;
+	}
+	button:hover {
+		color: rgb(var(--black));
+	}
+	:global(html:not([data-lang='ko'])) button[data-set-lang='en'],
+	:global(html[data-lang='ko']) button[data-set-lang='ko'] {
+		background: rgb(var(--gray-light));
+		color: rgb(var(--black));
+	}
+</style>

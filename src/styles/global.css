@@ -158,3 +158,9 @@ hr {
 	/* added line to stop words getting smushed together (as they go onto separate lines and some screen readers do not understand line feeds as a space */
 	white-space: nowrap;
 }
+
+/* Bilingual content: English is the default, Korean shown when html[data-lang='ko'] */
+html[data-lang='ko'] .lang-en,
+html:not([data-lang='ko']) .lang-ko {
+	display: none !important;
+}

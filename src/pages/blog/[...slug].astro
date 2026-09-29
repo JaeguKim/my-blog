@@ -1,5 +1,5 @@
 ---
-import { type CollectionEntry, getCollection, render } from 'astro:content';
+import { type CollectionEntry, getCollection, getEntry, render } from 'astro:content';
 import BlogPost from '../../layouts/BlogPost.astro';
 
 export async function getStaticPaths() {
@@ -12,9 +12,24 @@ export async function getStaticPaths() {
 type Props = CollectionEntry<'blog'>;
 
 const post = Astro.props;
+const translation = await getEntry('blogEn', post.id);
 const { Content } = await render(post);
+const EnContent = translation ? (await render(translation)).Content : undefined;
 ---
 
-<BlogPost {...post.data}>
-	<Content />
+<BlogPost {...post.data} en={translation?.data}>
+	{
+		EnContent ? (
+			<>
+				<div class="lang-en" lang="en">
+					<EnContent />
+				</div>
+				<div class="lang-ko" lang="ko">
+					<Content />
+				</div>
+			</>
+		) : (
+			<Content />
+		)
+	}
 </BlogPost>

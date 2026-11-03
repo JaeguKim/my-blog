@@ -6,7 +6,15 @@ pubDate: 'Nov 03 2026'
 
 This is a write-up of a talk I gave at our internal TMI session. The topic, jiu-jitsu, has nothing to do with work — but the more I trained, the more it started to look like work.
 
+I opened the talk with this sparring video: Mark Zuckerberg rolling with Lex Fridman.
+
+<div style="position: relative; aspect-ratio: 16 / 9; margin: 1.5em 0;">
+	<iframe src="https://www.youtube-nocookie.com/embed/1Wy-6z17up4" title="Mark Zuckerberg vs Lex Fridman in Jiu Jitsu" style="position: absolute; inset: 0; width: 100%; height: 100%; border: 0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>
+</div>
+
 ## Me and Jiu-Jitsu
+
+![The author in a blue belt, giving a thumbs-up](../../assets/jiu-jitsu/blue-belt.jpg)
 
 Jiu-jitsu (BJJ) is a grappling martial art: you grab, take down, and pin your opponent, then make them **tap** with a joint lock or a choke. I started on January 1, 2025. One year and nine months later, I'm a blue belt — the second step on white → blue → purple → brown → black — and only now learning how to attack.
 

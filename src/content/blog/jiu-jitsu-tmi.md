@@ -6,7 +6,15 @@ pubDate: 'Nov 03 2026'
 
 사내 TMI 시간에 발표한 내용을 글로 옮겼다. 주제는 일과 전혀 상관없는 주짓수지만, 하다 보니 결국 일 이야기와 닮아 있었다.
 
+발표는 이 스파링 영상으로 시작했다. 마크 저커버그와 렉스 프리드먼의 주짓수 스파링이다.
+
+<div style="position: relative; aspect-ratio: 16 / 9; margin: 1.5em 0;">
+	<iframe src="https://www.youtube-nocookie.com/embed/1Wy-6z17up4" title="Mark Zuckerberg vs Lex Fridman in Jiu Jitsu" style="position: absolute; inset: 0; width: 100%; height: 100%; border: 0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>
+</div>
+
 ## 저와 주짓수
+
+![블루벨트를 매고 엄지를 든 필자](../../assets/jiu-jitsu/blue-belt.jpg)
 
 주짓수(BJJ)는 상대를 잡고, 넘기고, 눌러서 관절기나 조르기로 **탭**을 받아내는 그래플링 무술이다. 2025년 1월 1일에 시작해서 1년 9개월째, 지금은 블루벨트다. 화이트 → 블루 → 퍼플 → 브라운 → 블랙 중 두 번째 칸이고, 이제야 공격을 배우는 중이다.
 

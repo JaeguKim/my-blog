@@ -1,6 +1,6 @@
 ---
 title: 'limit=1 Was the Most Expensive Request: A Friend-List Timeout'
-description: 'To decide whether to show a friend-request badge, the app called the friend-list API with limit=1 — and on some accounts it blew past the 3s deadline. The client limit was being used as the DynamoDB page size, so the less you asked for, the more round trips the server made. How p99 went from 1.2s to 62ms, a fix that changed three times under review, and a deploy that shipped the image from just before the fix.'
+description: 'To decide whether to show a friend-request badge, the app called the friend-list API with limit=1 — and on some accounts it blew past the 3s deadline. The client limit was being used as the DynamoDB page size, so the less you asked for, the more round trips the server made. How p99 went from 1.9s to 70ms, a fix that changed three times under review, and a deploy that shipped the image from just before the fix.'
 pubDate: 'Nov 12 2026'
 ---
 
@@ -162,17 +162,17 @@ The deploy ran before the build finished, so the previous image went out again. 
 
 ## Results
 
-I compared production `ListFriends` response logs, **split by image**:
+I compared production `ListFriends` response logs, **split by image**. The after window runs about 20 hours, to the next morning:
 
-| window | n | p50 | p90 | p99 | max | ≥1s |
-|---|---|---|---|---|---|---|
-| before (24h) | 55,551 | 62.5ms | 863.7ms | 1,922.5ms | 3,001.2ms | 4,494 |
-| before (2h right before deploy) | 3,008 | 17.9ms | 320.9ms | 1,199.3ms | 2,738.3ms | 67 |
-| **after** | **523** | **14.8ms** | **23.6ms** | **61.6ms** | **314.0ms** | **0** |
+| window | n | p50 | p90 | p99 | p99.9 | max | ≥1s |
+|---|---|---|---|---|---|---|---|
+| before (24h) | 55,551 | 62.5ms | 863.7ms | 1,922.5ms | — | 3,001.2ms | 4,494 |
+| before (4.6h right before deploy) | 6,930 | 30.4ms | 579.4ms | 1,816.7ms | 2,639.1ms | 3,001.0ms | 366 |
+| **after (~20h)** | **55,850** | **17.8ms** | **32.4ms** | **69.7ms** | **142.1ms** | **429.5ms** | **0** |
 
-- p99 went from 1.2–1.9s to **62ms**. There were zero calls over one second, and none over 500ms.
-- Of 165 failures in the 24 hours before, 29 ended near 3 seconds, hitting the deadline. After the fix there was one failure, which ended in 15.8ms and had nothing to do with timeouts.
-- The after window is only 19 minutes and 523 calls, too short to say heavy accounts are well represented. Confirming zero deadline errors over a full day is a next-day check.
+- p99 went from 1.8–1.9s to **70ms**, about 27× lower. There were zero calls over one second, and none over 500ms. The slowest call was a successful 429ms.
+- Of 165 failures in the 24 hours before, 29 ended near 3 seconds, hitting the deadline. After the fix, all 31 failures ended within 31ms. None ended near the deadline.
+- The first 19 minutes after the deploy (523 calls) already showed a 62ms p99. Over about 20 hours and 56k calls it holds at the same level, so heavy accounts with many friends are in the sample.
 
 ## Why nobody noticed
 
